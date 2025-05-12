@@ -1,0 +1,9 @@
+{
+  "note": "Store real ZenRows Zillow JSON payloads here for testing.",
+  "example_zpid_12345.json": {
+    "message": "This file would contain the full JSON response from ZenRows for ZPID 12345."
+  },
+  "example_zpid_67890.json": {
+    "message": "This file would contain the full JSON response from ZenRows for ZPID 67890."
+  }
+} 

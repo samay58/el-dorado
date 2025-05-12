@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Your other global styles can go here */
+
+body {
+  /* Example: a default background color for dark mode or light mode */
+  /* @apply bg-white dark:bg-neutral-900 text-black dark:text-white; */
+} 

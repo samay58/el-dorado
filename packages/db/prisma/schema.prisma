@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Site {
+  ZILLOW
+  TRULIA
+  // Add other sites as needed
+}
+
+model ListingRaw {
+  id          String   @id @default(uuid())
+  source      String // Potentially deprecate in favor of 'site' or ensure consistency
+  site        Site     @default(ZILLOW)
+  extId       String   // This will be part of the unique constraint with site
+  url         String
+  capturedAt  DateTime
+  json        Json
+  score       Score?
+  valuation   Valuation?
+
+  @@unique([extId, site]) // Add composite unique constraint
+}
+
+model Score {
+  id                  String    @id @default(uuid())
+  listingExtId        String    // This will be part of the unique constraint with site
+  site                Site      @default(ZILLOW) // Add site to Score model
+  alignmentScore      Float
+  missingMusts        String[]
+  matchedCriteriaKeys String[]
+  listing             ListingRaw @relation(fields: [listingExtId, site], references: [extId, site]) // Update relation
+  scoredAt            DateTime  @default(now()) @updatedAt
+  partials            Json?     // For storing per-criterion confidence/hits
+  locationBonus       Float     @default(0) // Bonus points from location scoring
+
+  @@unique([listingExtId, site]) // Add composite unique constraint for Score
+}
+
+model Valuation {
+  listingExtId String   // To link with ListingRaw's extId
+  site         Site     // To link with ListingRaw's site
+  signals      Json?    // To store raw input signals for valuation
+  valueIndex   Decimal? @db.Decimal(6, 2) // Final calculated value score
+  rawScore     Decimal? @db.Decimal(6, 2) // Pre-weighted sum for debugging
+  calculatedAt DateTime @default(now()) @updatedAt
+
+  listing    ListingRaw @relation(fields: [listingExtId, site], references: [extId, site])
+
+  @@id([listingExtId, site]) // Composite primary key
+}
+
+model Criterion {
+  id          String   @id @default(uuid())
+  key         String
+  weight      Int
+  must        Boolean
+  pattern     String
+  synonyms    String[] @default([]) // For storing list of synonymous phrases
+  updatedAt   DateTime @updatedAt
+}
+
+model EtlError {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  source    String?
+  message   String
+  details   Json?
+  resolved  Boolean  @default(false)
+}
+
+// --- Public Data Source Models ---
+
+// Redfin Data Center (Zip Code Market Metrics)
+model RedfinZipMetric {
+  id                   String    @id @default(uuid())
+  zipCode              String
+  periodBegin          DateTime  // Start date of the period Redfin reports for (e.g., week/month start)
+  periodEnd            DateTime  // End date of the period
+  regionType           String?   // e.g., "zip code"
+  medianSalePrice      Float?
+  medianPricePerSqFt   Float?
+  medianDom            Int?      // Median Days on Market
+  homesSold            Int?
+  inventory            Float?    // Average inventory count for the period
+  monthsOfSupply       Float?
+  // Add any other useful fields from Redfin Data Center downloads
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([zipCode, periodEnd]) // Assuming periodEnd and zipCode make a unique entry for a given dataset release
+  @@index([zipCode])
+  @@index([periodEnd])
+}
+
+// Zillow Home Value Index (ZHVI) by Zip Code
+model ZillowZhviZip {
+  id                   String    @id @default(uuid())
+  zipCode              String    // e.g., "94110"
+  regionName           String?   // e.g., "San Francisco, CA" or specific neighborhood if Zillow provides it at zip level
+  month                DateTime  // The month for which the ZHVI is reported (e.g., YYYY-MM-01)
+  zhvi                 Float?    // Zillow Home Value Index
+  zhviAppreciation12Mo Float?    // Calculated 12-month % appreciation
+  // Add other ZHVI-related fields if available and useful (e.g., forecast, perSqFt values)
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([zipCode, month])
+  @@index([zipCode])
+  @@index([month])
+}
+
+// Realtor.com Market Hotness Index by Zip Code
+model RealtorHotnessZip {
+  id                   String    @id @default(uuid())
+  zipCode              String
+  month                DateTime  // The month for which the Hotness Index is reported
+  rankNational         Int?      // National rank
+  rankState            Int?      // State rank (if available)
+  hotnessScore         Float?    // Overall hotness index
+  demandScore          Float?    // Score based on listing views
+  supplyScore          Float?    // Score based on median days on market
+  // Add other fields like median listing price, median DoM from this source if available
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([zipCode, month])
+  @@index([zipCode])
+  @@index([month])
+}
+
+// DataSF Property Sales Transactions
+model DataSfPropertySale {
+  id                   String    @id @default(uuid())
+  apn                  String    // Assessor's Parcel Number
+  
+  closeOfEscrowDate    DateTime
+  salePrice            Float     // Using Float, consider Decimal for exact financial values if doing many calculations
+  
+  propertyAddress      String?
+  propertyZipCode      String?
+  
+  assessedValue        Float?    // Most recent assessed value at time of sale
+  propertyClassCode    String?   // e.g., "D" for Dwelling, "C" for Commercial
+  propertyType         String?   // More descriptive property type
+  
+  bedrooms             Int?
+  bathrooms            Float?    // Can be 1.5, 2.5 etc.
+  squareFootage        Int?      // Building square footage
+  lotSizeSqFt          Int?
+  yearBuilt            Int?
+  
+  dataSourceUrl        String?   // Link to DataSF record or dataset version if useful
+  recordedDate         DateTime? // Date the sale was officially recorded
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  // APN is often unique for a parcel, but sales are transactions on that parcel.
+  // A true unique key for a sale might be a transaction ID from DataSF, or a composite.
+  // For now, making APN + closeOfEscrowDate unique assuming one sale per parcel per day.
+  // This might need adjustment based on real DataSF data uniqueness.
+  @@unique([apn, closeOfEscrowDate, salePrice]) // A more robust unique constraint for a sale event
+  @@index([apn])
+  @@index([propertyZipCode])
+  @@index([closeOfEscrowDate])
+}
+
+// --- Scrape Job Tracking ---
+
+enum ScrapeRunStatus {
+  IN_PROGRESS
+  SUCCESS
+  ERROR
+}
+
+model ScrapeRun {
+  id          String          @id @default(uuid())
+  site        Site
+  mode        String          // 'buy' | 'rent' | future modes
+  startedAt   DateTime        @default(now())
+  finishedAt  DateTime?
+  status      ScrapeRunStatus @default(IN_PROGRESS)
+
+  @@index([site, mode, startedAt])
+}

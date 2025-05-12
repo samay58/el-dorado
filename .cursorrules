@@ -1,0 +1,81 @@
+{
+  "rules": {
+    "general": [
+      "Use TypeScript exclusively for all code files.",
+      "Adhere to strict typing; avoid the use of 'any'.",
+      "Implement functional programming paradigms where appropriate.",
+      "Ensure all code is modular and reusable."
+    ],
+    "backend": {
+      "framework": "Fastify",
+      "guidelines": [
+        "Utilize Fastify for all backend server implementations.",
+        "Structure routes clearly and logically.",
+        "Handle errors gracefully with centralized error handling.",
+        "Implement input validation using Zod schemas."
+      ]
+    },
+    "database": {
+      "orm": "Prisma",
+      "guidelines": [
+        "Define and manage the database schema using Prisma ORM.",
+        "Use Prisma Migrate for all schema changes.",
+        "Enable Row-Level Security (RLS) on all tables except 'Criterion'."
+      ]
+    },
+    "scraping": {
+      "tool": "ZenRows",
+      "guidelines": [
+        "Use ZenRows' Universal Scraper API with 'js_render=true' and 'antibot=true'.",
+        "Implement rotating proxies for all scraping requests.",
+        "Parse HTML responses using Cheerio for data extraction.",
+        "Log all scraping errors to the 'etl_errors' table."
+      ]
+    },
+    "frontend": {
+      "framework": "Next.js",
+      "guidelines": [
+        "Utilize Next.js 14 with the App Router for routing.",
+        "Implement Tailwind CSS for styling and responsive design.",
+        "Use TanStack Table for sortable data tables.",
+        "Integrate Mapbox GL JS for interactive maps with clustering and popups.",
+        "Protect administrative routes using Supabase's magic-link authentication."
+      ]
+    },
+    "api": {
+      "framework": "Fastify",
+      "guidelines": [
+        "Expose RESTful API endpoints using Fastify.",
+        "Define routes for listing retrieval, criteria updates, and ISR triggers.",
+        "Validate all request and response payloads using Zod schemas."
+      ]
+    },
+    "testing": {
+      "framework": "Vitest",
+      "guidelines": [
+        "Write unit tests for all utility functions.",
+        "Use Mock Service Worker (MSW) to mock external API responses.",
+        "Ensure all tests pass before merging code changes."
+      ]
+    },
+    "ci_cd": {
+      "platform": "GitHub Actions",
+      "guidelines": [
+        "Set up workflows to run linting, type-checking, testing, and building on every push.",
+        "Block merges on any failed checks."
+      ]
+    },
+    "environment": {
+      "variables": [
+        "ZENROWS_API_KEY",
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "MAPBOX_TOKEN"
+      ],
+      "guidelines": [
+        "Store all sensitive information in environment variables.",
+        "Provide a '.env.example' file with placeholders for required variables."
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "include": [
+    "src/**/*"
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    // Define an outDir for compiled files if you build this package separately
+    // "outDir": "dist", 
+    // If you need to reference types from the db package specifically for compilation context
+    // you might add path mapping if the workspace setup isn't automatically handling it for TS server.
+    // This is more for the TS server than for pnpm/tsc build usually.
+    // "paths": {
+    //   "@my-real-estate-app/db/*": ["../db/src/*"],
+    //   "@my-real-estate-app/db": ["../db/src"]
+    // }
+  }
+} 
