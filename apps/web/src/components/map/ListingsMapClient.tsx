@@ -91,6 +91,7 @@ export default function ListingsMapClient({ mapboxToken }: ListingsMapClientProp
     });
 
     mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    mapRef.current.resize(); // ADDED: Force resize after initial setup
 
     // Clean up map instance on unmount
     return () => {
@@ -107,7 +108,13 @@ export default function ListingsMapClient({ mapboxToken }: ListingsMapClientProp
       const params = new URLSearchParams(); // Add any default filters if needed for map
       try {
         const result = await fetchMapListingsAPI(params);
+        console.log('Fetched listings:', result.listings);
         setListings(result.listings);
+        if (mapRef.current) {
+          requestAnimationFrame(() => { 
+            mapRef.current?.resize(); // Ensure mapRef.current is checked for null inside as well
+          });
+        }
       } catch (e: any) {
         setError(e.message || 'An unexpected error occurred while fetching map data.');
       }
@@ -132,15 +139,28 @@ export default function ListingsMapClient({ mapboxToken }: ListingsMapClientProp
           geometry: { type: 'Point', coordinates: [l.jsonData.longitude!, l.jsonData.latitude!] },
           properties: { extId: l.extId },
         }));
+      console.log('Features for clustering:', features); // DEBUGGING
 
       const clusterIdx = new supercluster({ radius: 60, maxZoom: 16 }).load(features as any);
 
       function updateClusters() {
-        if (!map.getSource('listings')) return;
+        // More robust check for map and source
+        if (!map || !map.getSource('listings')) { 
+          console.warn("Map or map source 'listings' not found in updateClusters. Skipping update.", { mapExists: !!map, sourceExists: !!map?.getSource('listings') });
+          return;
+        }
+        console.log("updateClusters called. Map and source 'listings' should exist."); // DEBUGGING
+
         const bbox = map.getBounds().toArray().flat();
         const zoom = map.getZoom();
         const clusters = clusterIdx.getClusters(bbox as [number, number, number, number], Math.round(zoom));
-        (map.getSource('listings') as any).setData({ type: 'FeatureCollection', features: clusters });
+        
+        try {
+          (map.getSource('listings') as any).setData({ type: 'FeatureCollection', features: clusters });
+          console.log("Updated map data with clusters:", clusters); // DEBUGGING
+        } catch (error) {
+          console.error("Error in setData on 'listings' source:", error); // DEBUGGING
+        }
       }
 
       moveHandler = updateClusters;
@@ -182,10 +202,11 @@ export default function ListingsMapClient({ mapboxToken }: ListingsMapClientProp
           id: 'listing-point',
           type: 'circle',
           source: 'listings',
-          filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#facc15',
-            'circle-radius': 6,
+            'circle-radius': 10,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff'
           },
         });
 
@@ -196,6 +217,60 @@ export default function ListingsMapClient({ mapboxToken }: ListingsMapClientProp
           const listing = listings.find(l => l.extId === extId);
           if (listing) setPopupListing(listing);
         });
+
+        // Create a popup for hover, but don't add it to the map yet.
+        const hoverPopup = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom' // Anchor popup above the point
+        });
+
+        map.on('mouseenter', 'listing-point', (e) => {
+          if (!e.features || e.features.length === 0) return;
+          const feature = e.features[0];
+
+          if (!feature || 
+              !feature.geometry || feature.geometry.type !== 'Point' || !feature.geometry.coordinates ||
+              !feature.properties || typeof feature.properties.extId === 'undefined') {
+            return;
+          }
+          
+          map.getCanvas().style.cursor = 'pointer';
+
+          const listing = listings.find(l => l.extId === feature.properties!.extId); // extId is checked above
+          if (!listing || !listing.jsonData) return;
+
+          // Make sure coordinates and lngLat are valid numbers before using them
+          const coordinates = feature.geometry.coordinates.slice() as [number, number];
+          const lngLat = e.lngLat;
+
+          if (typeof coordinates[0] !== 'number' || typeof coordinates[1] !== 'number' || 
+              !lngLat || typeof lngLat.lng !== 'number' || typeof lngLat.lat !== 'number') {
+            console.warn('Invalid coordinates or lngLat for hover popup');
+            return;
+          }
+          
+          const popupHtml = `<div><strong>${listing.jsonData.address || 'Address N/A'}</strong></div>`;
+
+          // Adjust coordinates to prevent popup from jumping across dateline
+          // This loop might not be strictly necessary if data is always in a similar longitude range
+          // but it's a good safeguard.
+          let currentLng = coordinates[0];
+          while (Math.abs(lngLat.lng - currentLng) > 180) {
+            currentLng += lngLat.lng > currentLng ? 360 : -360;
+          }
+
+          hoverPopup
+            .setLngLat([currentLng, coordinates[1]])
+            .setHTML(popupHtml)
+            .addTo(map);
+        });
+
+        map.on('mouseleave', 'listing-point', () => {
+          map.getCanvas().style.cursor = '';
+          hoverPopup.remove();
+        });
+
       }
 
       updateClusters();
@@ -228,7 +303,7 @@ export default function ListingsMapClient({ mapboxToken }: ListingsMapClientProp
           {/* Spinner or more advanced loader can go here */}
         </div>
       )}
-      <div ref={mapContainerRef} className="absolute inset-0" />
+      <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
       {popupListing && (
         <Modal open={true} onClose={() => setPopupListing(null)} title={popupListing.jsonData.address}>
           <Carousel showThumbs={false} infiniteLoop>

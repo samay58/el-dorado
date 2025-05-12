@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`computeValue > should calculate valueIndex and breakdown correctly for fixture 1 (ZPID 12345) > breakdown_zpid12345 1`] = `
+{
+  "deltaZ": -0.01754385964912277,
+  "domPct": 0.5454545454545455,
+  "hotFlag": 0,
+  "recentCut": -0,
+}
+`;
+
+exports[`computeValue > should calculate valueIndex and breakdown correctly for fixture 1 (ZPID 12345) > rawScore_zpid12345 1`] = `0.5279`;
+
+exports[`computeValue > should calculate valueIndex and breakdown correctly for fixture 1 (ZPID 12345) > valueIndex_zpid12345 1`] = `0.53`;
+
+exports[`computeValue > should calculate valueIndex and breakdown correctly for fixture 2 (ZPID 67890) > breakdown_zpid67890 1`] = `
+{
+  "deltaZ": 0.75,
+  "domPct": -0.3272727272727272,
+  "hotFlag": 0.5,
+  "recentCut": -0.4,
+}
+`;
+
+exports[`computeValue > should calculate valueIndex and breakdown correctly for fixture 2 (ZPID 67890) > rawScore_zpid67890 1`] = `0.5227`;
+
+exports[`computeValue > should calculate valueIndex and breakdown correctly for fixture 2 (ZPID 67890) > valueIndex_zpid67890 1`] = `0.52`;
