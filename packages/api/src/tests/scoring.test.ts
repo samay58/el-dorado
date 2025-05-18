@@ -217,6 +217,23 @@ describe('Scoring Engine - Unit Tests', () => {
             ]));
         });
 
+        it('should not count a fuzzy match below the minimum score', () => {
+            mockFastFuzzySearch.mockImplementation((text: string, searchPatterns: string[]) => {
+                if (searchPatterns.includes('quiet street')) {
+                    return [{ item: 'quiet street', original: 'quiet street', score: FUZZY_MATCH_MIN_SCORE - 0.01, match: 'a very quiet street' }];
+                }
+                return [];
+            });
+
+            const listingJson = { property_description: 'A home on a very quiet street.' };
+            const score = scoreListing(listingJson, preparedCriteria);
+
+            expect(mockFastFuzzySearch).toHaveBeenCalledWith('a home on a very quiet street.', ['quiet street'], { returnMatchData: true });
+            expect(score.matchedCriteriaKeys).not.toContain('Fuzzy Test');
+            expect(score.detailedHits.find((h) => h.criterionKey === 'Fuzzy Test')).toBeUndefined();
+            expect(score.alignmentScore).toBe(0);
+        });
+
         it('should identify missing must-have criteria', () => {
             const listingJson = { property_description: 'An open kitchen but no mention of light.' };
             const score = scoreListing(listingJson, preparedCriteria);
